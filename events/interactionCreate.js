@@ -203,7 +203,7 @@ module.exports = {
         return interaction.reply({ content: '✅ Farm locked and ready!', ephemeral: true });
       }
 
-      // END — FIXED VERSION
+      // END
       if (action === 'end') {
         if (!isHostOrAdmin) return interaction.reply({ content: '🚫 Admins/Host only.', ephemeral: true });
         const confirm = new ButtonBuilder().setCustomId(`confirmEnd:${farmMessageId}`).setLabel('✅ Confirm End').setStyle(ButtonStyle.Danger);
@@ -213,34 +213,17 @@ module.exports = {
         return;
       }
 
-      // CONFIRM END — FIXED ROLE DELETION
+      // CONFIRM END
       if (action === 'confirmEnd') {
         const privateChannel = interaction.guild.channels.cache.get(farm.privateChannelId);
         const role = interaction.guild.roles.cache.get(farm.roleId);
-        let deletedRole = false;
-
         if (privateChannel) await privateChannel.delete().catch(() => {});
-        if (role) {
-          try {
-            await role.delete('Farm ended – cleaning up temporary role');
-            deletedRole = true;
-            console.log(`✅ Deleted role: ${role.name}`);
-          } catch (err) {
-            console.log('⚠️ Failed to delete role:', err.message);
-          }
-        }
-
+        if (role)           await role.delete().catch(() => {});
         farms.delete(farmMessageId);
-
         const endedEmbed = new EmbedBuilder()
           .setTitle(`💀 ${farm.title} (Ended)`)
-          .setDescription(
-            `The farm has ended.\n\n` +
-            `Channel: ${privateChannel ? '✅ Deleted' : '⚠️ Missing'}\n` +
-            `Role: ${deletedRole ? '✅ Deleted' : '⚠️ Could not delete (check bot permissions/hierarchy)'}`
-          )
+          .setDescription('The farm has ended. Channel & role deleted.')
           .setColor(0x9b1c31);
-
         await farmMessage.edit({ embeds: [endedEmbed], components: [] });
         return interaction.update({ content: '✅ Farm ended.', components: [] });
       }
@@ -248,6 +231,113 @@ module.exports = {
       if (action === 'cancelEnd') {
         return interaction.update({ content: '❌ Farm end canceled.', components: [] });
       }
+    }
+
+    // Modal submit: Add Player
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('modalAdd:')) {
+      const [, farmMessageId] = interaction.customId.split(':');
+      const farm = farms.get(farmMessageId);
+      if (!farm) return interaction.reply({ content: '⚠️ Farm not found.', ephemeral: true });
+
+      const inputName = interaction.fields.getTextInputValue('playerName').trim();
+      if (!inputName) return interaction.reply({ content: '⚠️ Invalid name.', ephemeral: true });
+
+      const member = findMemberByNameCached(interaction.guild, inputName);
+      const newPlayer = member
+        ? { id: member.id, name: member.displayName, mod: null }
+        : { id: null, name: inputName, mod: null };
+
+      farm.players.push(newPlayer);
+
+      if (member) {
+        const role = interaction.guild.roles.cache.get(farm.roleId);
+        if (role && !member.roles.cache.has(role.id)) await member.roles.add(role).catch(() => {});
+        const privateChannel = interaction.guild.channels.cache.get(farm.privateChannelId);
+        if (privateChannel) {
+          await privateChannel.permissionOverwrites.create(member.id, {
+            ViewChannel: true, SendMessages: true, ReadMessageHistory: true
+          }).catch(() => {});
+        }
+      }
+
+      await updateFarmMessage(interaction, farm, farmMessageId);
+
+      // Show manual M2/M3 chooser (customId encodes manual flow!)
+      return interaction.reply({
+        content: `Player **${inputName}** added. Select their Freeze modification:`,
+        components: modChoiceRow(farmMessageId, `manual:${farmMessageId}:${inputName}`), // 👈 custom payload
+        ephemeral: true
+      });
+    }
+
+    // Remove select
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('removeSelect:')) {
+      const [, farmMessageId] = interaction.customId.split(':');
+      const farm = farms.get(farmMessageId);
+      if (!farm) return interaction.reply({ content: '⚠️ Farm not found.', ephemeral: true });
+
+      const selected = interaction.values[0];
+      const player = selected.startsWith('name::')
+        ? farm.players.find(p => `name::${p.name}` === selected)
+        : farm.players.find(p => p.id === selected);
+
+      if (!player) return interaction.reply({ content: '⚠️ Player not found.', ephemeral: true });
+
+      farm.players = farm.players.filter(p => p !== player);
+      await removeRoleIfHas(interaction.guild, farm.roleId, player);
+
+      if (farm.finalized && farm.players.length < farm.maxPlayers) farm.finalized = false;
+
+      await updateFarmMessage(interaction, farm, farmMessageId);
+      return interaction.reply({ content: `❌ Removed **${player.name}**.`, ephemeral: true });
+    }
+
+    // M2/M3 (normal & manual)
+    if (interaction.isButton() &&
+        (interaction.customId.startsWith('mod_m2:') || interaction.customId.startsWith('mod_m3:'))) {
+
+      const parts = interaction.customId.split(':');
+      const mod = parts[0] === 'mod_m2' ? 'M2' : 'M3';
+
+      // manual flow format: mod_mX:manual:<farmId>:<playerName with colons allowed>
+      if (parts[1] === 'manual') {
+        const farmMessageId = parts[2];
+        const farm = farms.get(farmMessageId);
+        if (!farm) return interaction.reply({ content: '⚠️ Farm not found.', ephemeral: true });
+        const playerName = parts.slice(3).join(':');
+        const player = farm.players.find(p => p.name === playerName);
+        if (player) player.mod = mod;
+        await updateFarmMessage(interaction, farm, farmMessageId);
+        return interaction.update({ content: `✅ Player **${playerName}** set as **${mod}**.`, components: [] });
+      }
+
+      // normal join flow: mod_mX:<farmId>
+      const farmMessageId = parts[1];
+      const farm = farms.get(farmMessageId);
+      if (!farm) return interaction.reply({ content: '⚠️ Farm not found.', ephemeral: true });
+      if (farm.finalized) return interaction.reply({ content: '🚫 Farm finalized.', ephemeral: true });
+      if (farm.players.length >= farm.maxPlayers) return interaction.reply({ content: '🚫 Farm full.', ephemeral: true });
+
+      const member = interaction.member;
+      farm.players.push({ id: member.id, name: member.displayName, mod });
+
+      const role = interaction.guild.roles.cache.get(farm.roleId);
+      if (role && !member.roles.cache.has(role.id)) await member.roles.add(role).catch(() => {});
+      const privateChannel = interaction.guild.channels.cache.get(farm.privateChannelId);
+      if (privateChannel) {
+        await privateChannel.permissionOverwrites.create(member.id, {
+          ViewChannel: true, SendMessages: true, ReadMessageHistory: true
+        }).catch(() => {});
+      }
+
+      await updateFarmMessage(interaction, farm, farmMessageId);
+
+      if (farm.players.length >= farm.maxPlayers) {
+        farm.finalized = true;
+        await updateFarmMessage(interaction, farm, farmMessageId);
+      }
+
+      return interaction.reply({ content: `✅ Joined as ${mod}.`, ephemeral: true });
     }
   }
 };
