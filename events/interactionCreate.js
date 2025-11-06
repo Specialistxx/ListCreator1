@@ -214,19 +214,36 @@ module.exports = {
       }
 
       // CONFIRM END
-      if (action === 'confirmEnd') {
-        const privateChannel = interaction.guild.channels.cache.get(farm.privateChannelId);
-        const role = interaction.guild.roles.cache.get(farm.roleId);
-        if (privateChannel) await privateChannel.delete().catch(() => {});
-        if (role)           await role.delete().catch(() => {});
-        farms.delete(farmMessageId);
-        const endedEmbed = new EmbedBuilder()
-          .setTitle(`💀 ${farm.title} (Ended)`)
-          .setDescription('The farm has ended. Channel & role deleted.')
-          .setColor(0x9b1c31);
-        await farmMessage.edit({ embeds: [endedEmbed], components: [] });
-        return interaction.update({ content: '✅ Farm ended.', components: [] });
-      }
+if (action === 'confirmEnd') {
+  const privateChannel = interaction.guild.channels.cache.get(farm.privateChannelId);
+  const role = interaction.guild.roles.cache.get(farm.roleId);
+
+  // Remove role from all players before deletion
+  if (role) {
+    for (const player of farm.players) {
+      await removeRoleIfHas(interaction.guild, role.id, player);
+    }
+  }
+
+  // Delete private channel
+  if (privateChannel) await privateChannel.delete().catch(() => {});
+
+  // Delete role itself
+  if (role) await role.delete().catch(() => {});
+
+  // Clean up farm state
+  farms.delete(farmMessageId);
+
+  // Update the message
+  const endedEmbed = new EmbedBuilder()
+    .setTitle(`💀 ${farm.title} (Ended)`)
+    .setDescription('The farm has ended. Channel & role deleted.')
+    .setColor(0x9b1c31);
+  await farmMessage.edit({ embeds: [endedEmbed], components: [] });
+
+  return interaction.update({ content: '✅ Farm ended.', components: [] });
+}
+
 
       if (action === 'cancelEnd') {
         return interaction.update({ content: '❌ Farm end canceled.', components: [] });
