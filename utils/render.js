@@ -77,7 +77,7 @@ function farmButtons(farmMessageId, finalized) {
 
   const shuffle = new ButtonBuilder()
     .setCustomId(`shuffle:${farmMessageId}`)
-    .setLabel('Shuffle')
+    .setLabel('Gold List')
     .setEmoji('🔀')
     .setStyle(ButtonStyle.Primary);
 
