@@ -5,51 +5,38 @@ const {
   EmbedBuilder,
 } = require('discord.js');
 
-// ===== FARM EMBED =====
 function farmEmbed(farm, createdBy) {
   const embed = new EmbedBuilder()
-    .setColor(farm.finalized ? 0xff4d4d : 0x1abc9c) // red when locked, teal when open
+    .setColor(farm.finalized ? 0xff4d4d : 0x1abc9c)
     .setAuthor({
       name: 'ProTanki Farm Session',
-      iconURL:
-        'https://cdn.discordapp.com/emojis/1219959270835167282.webp?size=96&quality=lossless',
+      iconURL: 'https://cdn.discordapp.com/emojis/1219959270835167282.webp?size=96&quality=lossless',
     })
     .setTitle(`🌾 ${farm.title}`)
     .setDescription(
       `**👑 Host:** <@${farm.hostId}>\n` +
-        `**👥 Players:** ${farm.players.length}/${farm.maxPlayers}\n` +
-        `**⏱ Duration:** ${farm.duration} minutes\n` +
-        `**📊 Status:** ${
-          farm.finalized ? '🔒 Finalized (Locked)' : '🟢 Open for Join'
-        }`
+      `**👥 Players:** ${farm.players.length}/${farm.maxPlayers}\n` +
+      `**⏱ Duration:** ${farm.duration} minutes\n` +
+      `**📊 Status:** ${farm.finalized ? '🔒 Finalized (Locked)' : '🟢 Open for Join'}`
     )
     .setFooter({
       text: `Created by ${createdBy} • ProTanki Organizer`,
-      iconURL:
-        'https://cdn.discordapp.com/emojis/1219959264647284736.webp?size=96&quality=lossless',
+      iconURL: 'https://cdn.discordapp.com/emojis/1219959264647284736.webp?size=96&quality=lossless',
     })
     .setTimestamp();
 
-  if (farm.players.length > 0) {
-    embed.addFields({
-      name: '👤 Participants',
-      value: farm.players
-        .map((p, i) => `${i + 1}. ${p.name}${p.mod ? ` — ${p.mod}` : ''}`)
-        .join('\n'),
-    });
-  } else {
-    embed.addFields({
-      name: '👤 Participants',
-      value: '_No players joined yet._',
-    });
-  }
+  embed.addFields({
+    name: '👤 Participants',
+    value:
+      farm.players.length > 0
+        ? farm.players.map((p, i) => `${i + 1}. ${p.name}${p.mod ? ` — ${p.mod}` : ''}`).join('\n')
+        : '_No players joined yet._',
+  });
 
   return embed;
 }
 
-// ===== BUTTONS ROWS =====
 function farmButtons(farmMessageId, finalized) {
-  // Row 1 — Join/Leave core actions
   const join = new ButtonBuilder()
     .setCustomId(`join:${farmMessageId}`)
     .setLabel('Join Farm')
@@ -71,7 +58,6 @@ function farmButtons(farmMessageId, finalized) {
 
   const row1 = new ActionRowBuilder().addComponents(join, leave, finalize);
 
-  // Row 2 — Admin utilities (limit: 5 per row)
   const add = new ButtonBuilder()
     .setCustomId(`add:${farmMessageId}`)
     .setLabel('Add Player')
@@ -102,42 +88,30 @@ function farmButtons(farmMessageId, finalized) {
     .setEmoji('📣')
     .setStyle(ButtonStyle.Primary);
 
-  // Row 3 — End button (kept separate to avoid exceeding 5 buttons per row)
   const endFarm = new ButtonBuilder()
     .setCustomId(`end:${farmMessageId}`)
     .setLabel('End Farm')
     .setEmoji('🧹')
     .setStyle(ButtonStyle.Danger);
 
-  const row2 = new ActionRowBuilder().addComponents(
-    add,
-    remove,
-    shuffle,
-    split,
-    pingAll
-  );
-
+  const row2 = new ActionRowBuilder().addComponents(add, remove, shuffle, split, pingAll);
   const row3 = new ActionRowBuilder().addComponents(endFarm);
 
   return [row1, row2, row3];
 }
 
-// ===== M2/M3 SELECTION =====
 function modChoiceRow(farmMessageId, payload) {
   const suffix = payload ? `${payload}` : `${farmMessageId}`;
-
   const m2 = new ButtonBuilder()
     .setCustomId(`mod_m2:${suffix}`)
     .setLabel('Freeze M2')
     .setEmoji('❄️')
     .setStyle(ButtonStyle.Primary);
-
   const m3 = new ButtonBuilder()
     .setCustomId(`mod_m3:${suffix}`)
     .setLabel('Freeze M3')
     .setEmoji('⚡')
     .setStyle(ButtonStyle.Secondary);
-
   return [new ActionRowBuilder().addComponents(m2, m3)];
 }
 

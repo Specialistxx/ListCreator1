@@ -18,20 +18,15 @@ module.exports = {
       o.setName('duration')
         .setDescription('Duration in minutes (for display only)')
         .setRequired(true))
-    .addBooleanOption(o =>
-      o.setName('ping_on_finalize')
-        .setDescription('Ping players when finalized?')
-        .setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   async execute(interaction) {
-    // ✅ Defer reply privately while we set things up
+    // ✅ Defer reply privately while setting up
     await interaction.deferReply({ ephemeral: true });
 
     const title = interaction.options.getString('title');
     const maxPlayers = interaction.options.getInteger('max_players');
     const duration = interaction.options.getInteger('duration');
-    const pingOnFinalize = interaction.options.getBoolean('ping_on_finalize');
 
     // 🔍 Find “Active Farms” category
     const category = interaction.guild.channels.cache.find(
@@ -93,7 +88,6 @@ module.exports = {
       title,
       maxPlayers,
       duration,
-      pingOnFinalize,
       hostId: interaction.user.id,
       players: [],
       privateChannelId: privateChannel.id,
