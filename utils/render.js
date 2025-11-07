@@ -9,15 +9,25 @@ const {
 function farmEmbed(farm, createdBy) {
   const embed = new EmbedBuilder()
     .setColor(farm.finalized ? 0xff4d4d : 0x1abc9c) // red when locked, teal when open
-    .setAuthor({ name: 'ProTanki Farm Session', iconURL: 'https://cdn.discordapp.com/emojis/1219959270835167282.webp?size=96&quality=lossless' })
+    .setAuthor({
+      name: 'ProTanki Farm Session',
+      iconURL:
+        'https://cdn.discordapp.com/emojis/1219959270835167282.webp?size=96&quality=lossless',
+    })
     .setTitle(`🌾 ${farm.title}`)
     .setDescription(
       `**👑 Host:** <@${farm.hostId}>\n` +
-      `**👥 Players:** ${farm.players.length}/${farm.maxPlayers}\n` +
-      `**⏱ Duration:** ${farm.duration} minutes\n` +
-      `**📊 Status:** ${farm.finalized ? '🔒 Finalized (Locked)' : '🟢 Open for Join'}`
+        `**👥 Players:** ${farm.players.length}/${farm.maxPlayers}\n` +
+        `**⏱ Duration:** ${farm.duration} minutes\n` +
+        `**📊 Status:** ${
+          farm.finalized ? '🔒 Finalized (Locked)' : '🟢 Open for Join'
+        }`
     )
-    .setFooter({ text: `Created by ${createdBy} • ProTanki Organizer`, iconURL: 'https://cdn.discordapp.com/emojis/1219959264647284736.webp?size=96&quality=lossless' })
+    .setFooter({
+      text: `Created by ${createdBy} • ProTanki Organizer`,
+      iconURL:
+        'https://cdn.discordapp.com/emojis/1219959264647284736.webp?size=96&quality=lossless',
+    })
     .setTimestamp();
 
   if (farm.players.length > 0) {
@@ -55,14 +65,13 @@ function farmButtons(farmMessageId, finalized) {
 
   const finalize = new ButtonBuilder()
     .setCustomId(`finalize:${farmMessageId}`)
-    .setLabel('Finalize')
-    .setEmoji('🛑')
-    .setStyle(ButtonStyle.Danger)
-    .setDisabled(finalized);
+    .setLabel(finalized ? 'Unfinalize' : 'Finalize')
+    .setEmoji(finalized ? '🔓' : '🛑')
+    .setStyle(finalized ? ButtonStyle.Secondary : ButtonStyle.Danger);
 
   const row1 = new ActionRowBuilder().addComponents(join, leave, finalize);
 
-  // Row 2 — Admin utilities
+  // Row 2 — Admin utilities (limit: 5 per row)
   const add = new ButtonBuilder()
     .setCustomId(`add:${farmMessageId}`)
     .setLabel('Add Player')
@@ -87,15 +96,30 @@ function farmButtons(farmMessageId, finalized) {
     .setEmoji('⚖️')
     .setStyle(ButtonStyle.Secondary);
 
+  const pingAll = new ButtonBuilder()
+    .setCustomId(`ping:${farmMessageId}`)
+    .setLabel('Ping Everyone')
+    .setEmoji('📣')
+    .setStyle(ButtonStyle.Primary);
+
+  // Row 3 — End button (kept separate to avoid exceeding 5 buttons per row)
   const endFarm = new ButtonBuilder()
     .setCustomId(`end:${farmMessageId}`)
     .setLabel('End Farm')
     .setEmoji('🧹')
     .setStyle(ButtonStyle.Danger);
 
-  const row2 = new ActionRowBuilder().addComponents(add, remove, shuffle, split, endFarm);
+  const row2 = new ActionRowBuilder().addComponents(
+    add,
+    remove,
+    shuffle,
+    split,
+    pingAll
+  );
 
-  return [row1, row2];
+  const row3 = new ActionRowBuilder().addComponents(endFarm);
+
+  return [row1, row2, row3];
 }
 
 // ===== M2/M3 SELECTION =====
