@@ -100,18 +100,19 @@ function farmButtons(farmMessageId, finalized) {
   return [row1, row2, row3];
 }
 
-function modChoiceRow(farmMessageId, payload) {
-  const suffix = payload ? `${payload}` : `${farmMessageId}`;
+function modChoiceRow(farmMessageId) {
   const m2 = new ButtonBuilder()
-    .setCustomId(`mod_m2:${suffix}`)
+    .setCustomId(`mod_m2:${farmMessageId}`)
     .setLabel('Freeze M2')
     .setEmoji('❄️')
     .setStyle(ButtonStyle.Primary);
+
   const m3 = new ButtonBuilder()
-    .setCustomId(`mod_m3:${suffix}`)
+    .setCustomId(`mod_m3:${farmMessageId}`)
     .setLabel('Freeze M3')
     .setEmoji('⚡')
     .setStyle(ButtonStyle.Secondary);
+
   return [new ActionRowBuilder().addComponents(m2, m3)];
 }
 
